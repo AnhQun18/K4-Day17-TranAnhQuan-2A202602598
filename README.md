@@ -35,7 +35,7 @@ Sau khi hoàn thành, các bạn cần có khả năng:
 ├── data/            # dữ liệu benchmark dùng chung
 │   ├── conversations.json
 │   └── advanced_long_context.json
-└── src/             # bản scaffold dành cho sinh viên (pseudocode + TODO)
+└── src/             # triển khai offline và live đã hoàn thiện
     ├── model_provider.py
     ├── config.py
     ├── memory_store.py
@@ -143,7 +143,7 @@ source .venv/bin/activate
 pip install langchain langgraph langchain-openai langchain-google-genai langchain-anthropic langchain-ollama langchain-openrouter python-dotenv tabulate pytest
 ```
 
-Nếu muốn chạy chế độ live với LLM thật, hãy tạo file `.env` ở root repo (đã nằm trong `.gitignore`). Tên biến môi trường do các bạn quyết định khi viết `load_config()`. Ví dụ:
+Nếu muốn chạy chế độ live với LLM thật, hãy tạo file `.env` ở root repo (đã nằm trong `.gitignore`). Cấu hình trong `.env.example` được `load_config()` đọc trực tiếp. Ví dụ:
 
 ```
 LLM_PROVIDER=openai
@@ -153,7 +153,7 @@ OPENAI_API_KEY=...
 
 ## Chạy benchmark và test
 
-Sau khi hoàn thiện `src/`, chạy từ root repo:
+Chạy từ root repo:
 
 ```bash
 python src/benchmark.py
@@ -182,3 +182,44 @@ Nếu các bạn là giảng viên hoặc reviewer:
 - `Rubric.md`: tiêu chí chấm điểm và bonus
 
 Track này được thiết kế để các bạn không chỉ “dùng agent”, mà còn bắt đầu nghĩ như một người thiết kế **memory system** cho agent production.
+
+## Chạy bản đã hoàn thiện trên Windows
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m pytest src/test_agents.py -v -p no:cacheprovider
+.\.venv\Scripts\python.exe src/benchmark.py
+```
+
+Đọc `REPORTS.md` để xem số liệu, trade-off và giới hạn của benchmark offline.
+`src/README.md` mô tả các module đã triển khai. Dataset và rubric gốc được giữ nguyên.
+
+### Gọi LLM thật
+
+Điền `.env` theo provider trong `.env.example`, lưu file rồi chạy:
+
+```powershell
+.\.venv\Scripts\python.exe src/chat.py --live --user quan --message "Chào bạn, hãy giới thiệu ngắn gọn."
+.\.venv\Scripts\python.exe src/chat.py --live --user quan
+```
+
+Terminal phải hiện `Mode: LIVE` cùng provider và model. Trong chat, nhập thông tin
+như `Mình tên là Quân. Mình đang ở Huế.`; nhập `/new` rồi hỏi `Tên mình là gì và đang ở đâu?`.
+Nhập `/quit` để thoát. Advanced lưu `state/profiles/quan/User.md` qua lần chạy sau.
+Dùng `--agent baseline` để so sánh việc quên khi đổi thread.
+
+Benchmark API thật (nhiều lượt gọi, có usage theo provider):
+
+```powershell
+.\.venv\Scripts\python.exe src/benchmark.py --live
+```
+
+Không có `--live`, chat và benchmark dùng offline. Chế độ live báo lỗi API/key trực tiếp,
+không tự chuyển sang câu trả lời offline. Lỗi 401 thường do key; 429 có thể do quota/rate limit;
+model không tồn tại cần kiểm tra `LLM_MODEL` theo tài khoản provider.
+Token live lấy từ usage metadata nếu provider trả về, nếu thiếu sẽ dùng estimator.
+Không ghi API key vào báo cáo hoặc commit `.env`.
+
+Với Gemini, cấu hình `LLM_PROVIDER=gemini`, `LLM_MODEL=gemini-3.6-flash` và
+`GEMINI_API_KEY`. Gemini 2.0 Flash đã ngừng hoạt động; xem
+[lịch hỗ trợ model của Google](https://ai.google.dev/gemini-api/docs/deprecations).
